@@ -21,8 +21,10 @@ void fileWatcher()
 	char file_name[MAX_PATH]; //设置文件名
 	char file_name2[MAX_PATH]; //设置文件重命名后的名字
 	char notify[1024];
-	int count = 0; //文件数量。可能同时拷贝、删除多个文件，可以进行更友好的提示。
+	int count = 0; //文件数量
+	//监控的目录
 	TCHAR *dir = _T("E:\\Action");
+	//生成监控目录的句柄
 	HANDLE dirHandle = CreateFile(dir,
 		GENERIC_READ | GENERIC_WRITE | FILE_LIST_DIRECTORY,
 		FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -30,7 +32,7 @@ void fileWatcher()
 		OPEN_EXISTING,
 		FILE_FLAG_BACKUP_SEMANTICS,
 		NULL);
-	if(dirHandle == INVALID_HANDLE_VALUE) //若网络重定向或目标文件系统不支持该操作，函数失败，同时调用GetLastError()返回ERROR_INVALID_FUNCTION
+	if(dirHandle == INVALID_HANDLE_VALUE) //若目标文件系统不支持该操作，函数失败，同时调用GetLastError()返回ERROR_INVALID_FUNCTION
 	{
 		cout<<"error"+GetLastError()<<endl;
 	}
@@ -39,6 +41,7 @@ void fileWatcher()
 	cout<<"start...."<<endl;   
 	while(true)
 	{
+		//使用ReadDirectoryChangesW监控目录
 		if(ReadDirectoryChangesW(dirHandle,
 			&notify,
 			1024,
