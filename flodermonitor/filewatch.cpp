@@ -48,7 +48,8 @@ int main()
 	//创建一个线程专门用于监控文件变化
 	HANDLE TrheadWatch=CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)WatchChanges,&ParameterToThread,0,NULL);
 	WaitForSingleObject(TrheadWatch, INFINITE);  
-	//CloseHandle(TrheadWatch);
+	CloseHandle(TrheadWatch);
+	Sleep(10000);
 	return 0;
 }
 
