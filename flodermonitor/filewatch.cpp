@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <tchar.h>
 #include <ctime>
@@ -22,15 +23,18 @@ typedef struct ThreadParameter
 	DWORD *in_out_version;//返回版本信息
 	FILE_NOTIFY_INFORMATION *temp_notification;//备用的一个参数
 }ThreadParameter;
-
+DWORD WINAPI WatchChanges(LPVOID lpParameter);
 time_t ChangeTime;
 int edit_flag;
-iostream WriteLog;
+fstream WriteLog;
 
 int main()
 {
+	WriteLog.open("wlog.txt", ios::out);
 	//传递给WatchChanges函数的参数,这部分代码截自主函数
-	LPTSTR Directory = "E:/Action";
+	
+	TCHAR *dir = _T("E:\\Action");
+	LPTSTR Directory = dir;
 	char notify[1024];
 	memset(notify,'\0',1024);
 	FILE_NOTIFY_INFORMATION *Notification=(FILE_NOTIFY_INFORMATION *)notify;
@@ -43,7 +47,8 @@ int main()
 
 	//创建一个线程专门用于监控文件变化
 	HANDLE TrheadWatch=CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)WatchChanges,&ParameterToThread,0,NULL);
-	CloseHandle(TrheadWatch);
+	WaitForSingleObject(TrheadWatch, INFINITE);  
+	//CloseHandle(TrheadWatch);
 	return 0;
 }
 
@@ -123,17 +128,17 @@ DWORD WINAPI WatchChanges(LPVOID lpParameter)//返回版本信息
 
 			if (parameter->in_out_notification->Action==FILE_ACTION_ADDED)
 			{
-				WriteLog<<ctime(&ChangeTime)<<"新增文件 : "<<file_name<<"\n"<<flush;
+				WriteLog<<ctime(&ChangeTime)<<"新增文件 : "<<file_name.c_str()<<"\n"<<flush;
 			}
 			if (parameter->in_out_notification->Action==FILE_ACTION_REMOVED)
 			{
-				WriteLog<<ctime(&ChangeTime)<<"删除文件 : "<<file_name<<"\n"<<flush;
+				WriteLog<<ctime(&ChangeTime)<<"删除文件 : "<<file_name.c_str()<<"\n"<<flush;
 			}
 			if (parameter->in_out_notification->Action==FILE_ACTION_MODIFIED)
 			{
 				edit_flag++;
 				if(edit_flag==1)
-					WriteLog<<ctime(&ChangeTime)<<"修改文件 : "<<file_name<<"\n"<<flush;
+					WriteLog<<ctime(&ChangeTime)<<"修改文件 : "<<file_name.c_str()<<"\n"<<flush;
 				else if(edit_flag==2)
 				{
 					edit_flag=0;
@@ -147,12 +152,11 @@ DWORD WINAPI WatchChanges(LPVOID lpParameter)//返回版本信息
 			//对于下面两种情况，Action本身也是文件名（可能是old_name也可能是new_name）
 			if (parameter->in_out_notification->Action==FILE_ACTION_RENAMED_OLD_NAME)
 			{
-				WriteLog<<ctime(&ChangeTime)<<"重命名\""<<file_name<<"\"文件\n"<<flush;
+				WriteLog<<ctime(&ChangeTime)<<"重命名\""<<file_name.c_str()<<"\"文件\n"<<flush;
 			}
 			if (parameter->in_out_notification->Action==FILE_ACTION_RENAMED_NEW_NAME)
 			{
-				WriteLog<<ctime(&ChangeTime)<<"重命名\""<<file_name<<"\"文件为\""<<parameter->in_out_notification->Action<<"\"\n"<<flush;
-
+				WriteLog<<ctime(&ChangeTime)<<"重命名\""<<file_name.c_str()<<"\"文件为\""<<parameter->in_out_notification->Action<<"\"\n"<<flush;
 			}
 			(*(parameter->in_out_version))++;
 			memset(parameter->in_out_notification,'\0',1024);
