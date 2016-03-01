@@ -4,6 +4,7 @@
 #include <cstring>
 #include <tchar.h>
 #include <ctime>
+#include <string.h>
 
 using namespace std;
 
