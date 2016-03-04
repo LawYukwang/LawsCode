@@ -31,7 +31,8 @@ fstream WriteLog;
 
 int main()
 {
-	WriteLog.open("wlog.txt", ios::out);
+	WriteLog.open("wlog.txt", ios::in);
+	cout<<WriteLog.width()<<","<<WriteLog.gcount()<<endl;
 	//传递给WatchChanges函数的参数,这部分代码截自主函数
 	
 	TCHAR *dir = _T("E:\\Action");
