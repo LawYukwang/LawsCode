@@ -19,12 +19,53 @@ typedef struct
 } list_node;
 #pragma pack(pop)
 
+//mem struct
+typedef struct memBlock
+{
+	unsigned char * memPointer;
+	bool isUse;
+	memBlock * next;
+}memBlockNode;
+
+//mem head
+memBlockNode memNode[NODE_COUNT];
+memBlockNode * memHead;
+
+void memInit()
+{
+	unsigned char * memStart = new unsigned char[MAX_DATA_SIZE * NODE_COUNT];
+
+	for (int i = 1; i < NODE_COUNT ; i++)
+	{
+		memNode[i].memPointer = memStart + i * MAX_DATA_SIZE;
+		memNode[i].isUse = false;
+		if (i == NODE_COUNT - 1)
+		{
+			memNode[i].next       = NULL;
+			break;
+		}
+		memNode[i].next = &memNode[i+1];
+	}
+	memHead = &memNode[0];
+}
+
+unsigned char * newMem()
+{
+	if(!memHead->isUse)
+		return memHead->memPointer;
+	else
+		return NULL;
+}
+
+void deleteMem()
+{}
 //global
 list <list_node *> unuseList;
 list <list_node *> usingList;
 unsigned char* dataMem;
 HANDLE hEvent = INVALID_HANDLE_VALUE;
 CRITICAL_SECTION seclock;
+CRITICAL_SECTION unseclock;
 
 void memInit(int num)
 {
@@ -48,25 +89,40 @@ void reuse(list_node * node)
 	node->width    = 0;
 	node->height   = 0;
 	node->dataSize = 0;
+	EnterCriticalSection(&unseclock);
 	unuseList.push_back(node);
+	LeaveCriticalSection(&unseclock);
+
 }
 
 DWORD WINAPI copyFunc(LPVOID  args)
 {
-	for(int i = 1;unuseList.size();i++)
-	{
+	
+	for(int i = 1;i > 0;i++)
+	{	
+		EnterCriticalSection(&unseclock);
+		printf("size:%d\n",unuseList.size());
+		if(!unuseList.size())
+		{
+			//LeaveCriticalSection(&unseclock);
+			return 0;
+		}
 		list_node * temp = unuseList.front();
 		unuseList.pop_front();
+		LeaveCriticalSection(&unseclock);
+
 		//processing
 		memset(temp->pData,i,MAX_DATA_SIZE);
 		temp->n        = i;
 		temp->width    = i;
 		temp->height   = i;
 		temp->dataSize = i;
+		EnterCriticalSection(&seclock);
 		usingList.push_back(temp);
-		SetEvent(hEvent);
-		Sleep(1000);
+		LeaveCriticalSection(&seclock);
 		printf("%d\n",i);
+		SetEvent(hEvent);
+		Sleep(1000);	
 	}
 	return 0;
 }
@@ -76,18 +132,24 @@ int main()
 	//static int i = 1;
 	memInit(5);
 	InitializeCriticalSection(&seclock);
+	InitializeCriticalSection(&unseclock);
 	hEvent = CreateEvent(NULL, FALSE, FALSE, LPCSTR("SECEVT"));
 	HANDLE hThread = CreateThread(NULL,0,copyFunc, NULL,0,NULL);
 	while (1)
 	{
 		WaitForSingleObject(hEvent, INFINITE);
+		EnterCriticalSection(&seclock);
 		list_node * processingNode = usingList.front();
 		usingList.pop_front();
-		Sleep(1000);
+		LeaveCriticalSection(&seclock);
+		Sleep(1200);
+		printf("processed:%d\n",processingNode->n);
 		reuse(processingNode);
+		if(usingList.size())
+			SetEvent(hEvent);
 	}
 	CloseHandle(hEvent);
 	CloseHandle(hThread);
 	DeleteCriticalSection(&seclock);
-
+	DeleteCriticalSection(&unseclock);
 }
