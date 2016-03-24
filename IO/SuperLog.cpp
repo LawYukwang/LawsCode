@@ -9,16 +9,15 @@
 //  *************************************************************
 
 #include "SuperLog.h"
-#include <fstream>
-#include <istream>
-#include <ostream>
 #include <ctime>
-#include <tchar.h>
 
 using namespace std; 
 
 time_t    g_tmCurTimeL;
 string    g_strTimeL;
+TCHAR*    g_pszLogLevel[]          = {_T("0"), _T("1"), _T("2"), _T("3")};
+TCHAR     g_szWriteBinInfo[MAX_BIN_LOG_INFO_LEN];
+TCHAR*    g_pszLogFileName[MAX_LOG_FILE_COUNT] = {_T("log/defectsearchlog.txt"), _T("../log/log2.txt"), _T("../log/log3.txt")};
 // 类静态变量初始化
 string    CSuperLog::m_strWriteStrInfoL;
 int       CSuperLog::m_iWriteBinLogLen = 0;
@@ -30,23 +29,19 @@ int       CSuperLog::m_iLogLevel  = CSuperLog::ENUM_LOG_LEVEL_DEBUG;
 int       CSuperLog::m_iLogLevel  = CSuperLog::ENUM_LOG_LEVEL_RUN;
 #endif
 
-TCHAR*    g_pszLogLevel[]          = {_T("0"), _T("1"), _T("2"), _T("3")};
 HANDLE    CSuperLog::m_hMapLogFile = NULL;
 LPTSTR    CSuperLog::m_psMapAddr   = NULL;  
-char      g_szWriteBinInfo[MAX_BIN_LOG_INFO_LEN];
-TCHAR*    g_pszLogFileName[MAX_LOG_FILE_COUNT] = {_T("../log/defectsearchlog.txt"), _T("../log/log2.txt"), _T("../log/log3.txt")};
 HANDLE    CSuperLog::m_hThread     = NULL;
 unsigned  CSuperLog::m_uiThreadID  = 0;
 bool      CSuperLog::m_bRun        = true;
 CSuperLog::enLogStatus CSuperLog::m_enStatus   = CSuperLog::ENUM_LOG_INIT;
 
 fstream           CSuperLog::m_pFileL;
-//fstream            CSuperLog::m_pFileLL      = NULL;
 int                    CSuperLog::m_iMaxLogFileLen = MAX_LOG_FILE_LEN;
 CRITICAL_SECTION       CSuperLog::m_csWriteLog;
 
 // 这里已经构造了全局函数
-CSuperLog g_SuperLog;
+CSuperLog  g_SuperLog;
 
 // string 转换成 lpcwstr
 LPCWSTR stringToLPCWSTR(string orig)
@@ -74,22 +69,19 @@ string TCHAR2STRIN(TCHAR *STR)
 }
 #endif
 
-
 DWORD WINAPI CSuperLog::LogProcStart( LPVOID  args )
 {
 	int nCount = 1;
-	//CString strTemp;
 	string strTempL;
 	WriteLog(_T("日志线程启动."), ENUM_LOG_LEVEL_DEBUG, true);
-	//WriteLog(_T("日志线程启动."), ENUM_LOG_LEVEL_RUN, true);
-	// 线程开始
+
 	do 
 	{
 		Sleep(300);
 		if (++nCount % 10 == 0 )
 		{
-			//WriteLog(strTemp, ENUM_LOG_LEVEL_ERROR, true); // 每隔三秒写一次日志
-			WriteLog(strTempL, ENUM_LOG_LEVEL_ERROR, true); // 每隔三秒写一次日志
+			// 每隔三秒写一次日志
+			WriteLog(strTempL, ENUM_LOG_LEVEL_ERROR, true); 
 			CheckLogLevel();
 		}
 
@@ -107,25 +99,13 @@ DWORD WINAPI CSuperLog::LogProcStart( LPVOID  args )
 
 	// 程序开始退出
 	WriteLog(_T("Super logger has exited."), ENUM_LOG_LEVEL_RUN, true);
-	//if (m_pFile != NULL)
-	//{
-	//    m_pFile->Close();
-	//    delete m_pFile;
-	//    m_pFile = NULL;
-	//}
 
 	if (m_pFileL.is_open())
 	{
-		//m_pFileL->Close();
-
 		m_pFileL.close();
-
-		//delete m_pFileL;
-		//m_pFileL = NULL;
 	}
 
 	m_enStatus = ENUM_LOG_EXITED;
-	//_endthreadex( 0 );
 	return 0;
 } 
 
@@ -136,32 +116,20 @@ CSuperLog::CSuperLog(void)
 	// 打开一个日志文件
 	OpenLogFile();
 	// 启动信息
-	//m_strWriteStrInfo = WELCOME_LOG_INFO;
-
 	m_strWriteStrInfoL = WELCOME_LOG_INFOL;
 	WriteLog(_T("Super logger start up."), ENUM_LOG_LEVEL_RUN, true);
-
-	//CString str1 = filePath; 
-	//sprintf_s(&filePath[0], MAX_PATH, "%s:%d", __FILE__,__LINE__);
-	//string s(&filePath[0],&filePath[strlen(filePath)]); 
-	//WriteLog(_T(__FILE__), ENUM_LOG_LEVEL_RUN, true);
-	//WriteLog(_T(filePath), ENUM_LOG_LEVEL_RUN, true);
-	//char *str = filePath;
-	//	WriteLog(str, ENUM_LOG_LEVEL_RUN, true);
-
-	//WriteLogL(_T(__FILE__), ENUM_LOG_LEVEL_RUN, true);
-	//"__FILE__"
 	// 从配置文件中读取日志级别
 	OperaterConfig(FALSE);
 	// 同步到共离内存中
 	SetLogLevelShareMem(m_iLogLevel);
 	// Create the Logger thread.
 	//m_hThread = (HANDLE)_beginthreadex( NULL, 0, &LogProcStart, NULL, 0, &m_uiThreadID );
-
-
 	m_hThread = CreateThread(NULL, 0, LogProcStart, NULL, 0, NULL);
-	CloseHandle(m_hThread);
-	m_hThread = INVALID_HANDLE_VALUE;
+	if (m_hThread != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_hThread);
+		m_hThread = INVALID_HANDLE_VALUE;
+	}
 
 }
 
@@ -190,45 +158,30 @@ int CSuperLog::OperaterConfig(BOOL bSave)
 {
 	TCHAR szPath[MAX_PATH];
 	if( !GetModuleFileName( NULL, szPath, MAX_PATH ) )
+		//一个模块的句柄。可以是一个DLL模块，或者是一个应用程序的实例句柄。
+		//如果该参数为NULL，该函数返回该应用程序全路径
+		//如果想获得某个正在运行的EXE或者DLL的全路径可以这样写代码
+		//GetModuleFileNameEx(hProcess,hInst,lpFile,MAX_PATH);//注意下缓冲区就行了。
 	{
-		WRITE_LOG(_T("GetModuleFileName失败。"), LOG_LEVEL_ERROR);
+		WriteLog(_T("GetModuleFileName失败。"), LOG_LEVEL_ERROR);
 		return -1;
 	}
-
-	//CString strDir = szPath;
-
-	UINT len = _tcslen(szPath)*2;
+	
+	UINT len = _tcslen(szPath);
 	char *buf = (char *)malloc(len);
-	//UINT i = wcstombs(buf,szPath,len);
-	//return buf;
-	size_t   i;
+	
 #ifdef _UNICODE
+	size_t   i;
 	errno_t einval= wcstombs_s(&i,  buf, len, szPath, _tcslen(szPath));
 #endif
 
 	string strDirL = buf;
-	//int nPos = strDir.ReverseFind(_T('\\'));
-
-	int nPosL = strDirL.rfind(('\\'));
-
-	//if (nPos == -1)
-	//{
-	//    WRITE_LOG(_T("GetModuleFileName取得信息异常。"), LOG_LEVEL_ERROR);
-	//    return -1;
-	//}
-
-
+	int nPosL = strDirL.rfind(('\\'));//返回最后一个与‘\’相符的位置
 	if (nPosL == -1)
 	{
-		WRITE_LOG(_T("GetModuleFileName取得信息异常。"), LOG_LEVEL_ERROR);
+		WriteLog(_T("GetModuleFileName取得信息异常。"), LOG_LEVEL_ERROR);
 		return -1;
 	}
-
-
-	//strDir = strDir.Left(nPos + 1);
-	//strDir += _T("SuperLog.ini");
-
-
 	strDirL = strDirL.substr(nPosL + 1);
 	strDirL += ("SuperLog.ini");
 
@@ -240,45 +193,40 @@ int CSuperLog::OperaterConfig(BOOL bSave)
 
 	if (bSave)
 	{
-		//WritePrivateProfileString(
-		//    _T("SuperLog"), 
-		//    _T("LogLevel"), 
-		//    g_pszLogLevel[m_iLogLevel],
-		//    strDir);
-
+		//BOOL WritePrivateProfileString( //写入.ini文件 
+  //LPCTSTR lpAppName,  // INI文件中的一个字段名[节名]可以有很多个节名   
+  //LPCTSTR lpKeyName,  // lpAppName 下的一个键名，也就是里面具体的变量名   
+  //LPCTSTR lpString,   // 键值,也就是数据   
+  //LPCTSTR lpFileName  // INI文件的路径  
+//);  
 		WritePrivateProfileString(
 			_T("SuperLog"), 
 			_T("LogLevel"), 
 			g_pszLogLevel[m_iLogLevel],
 			a);
 
-
-		//CString temp;
-		//temp.Format(_T("%d"), m_iMaxLogFileLen);
-		//WritePrivateProfileString(
-		//    _T("SuperLog"), 
-		//    _T("MaxLogFileLen"), 
-		//    (LPCTSTR)temp,
-		//    strDir);
-
 		WritePrivateProfileString(
 			_T("SuperLog"), 
 			_T("MaxLogFileLen"), 
 			_T("%d"),
 			a);
-
-
-
+		//DWORD GetPrivateProfileString(  //读取.ini文件
+  //LPCTSTR lpAppName,        // INI文件中的一个字段名[节名]可以有很多个节名  
+  //LPCTSTR lpKeyName,        // lpAppName 下的一个键名，也就是里面具体的变量名   
+  //LPCTSTR lpDefault,        // 如果lpReturnedString为空,则把个变量赋给lpReturnedString   
+  //LPTSTR lpReturnedString,  // 存放键值的指针变量,用于接收INI文件中键值(数据)的接收缓冲区   
+  //DWORD nSize,            // lpReturnedString的缓冲区大小   
+  //LPCTSTR lpFileName        // INI文件的路径  
+//);  
 	} 
 	else
 	{
-
-		//m_iLogLevel = GetPrivateProfileInt(
-		//          _T("SuperLog"), 
-		//          _T("LogLevel"), 
-		//          ENUM_LOG_LEVEL_RUN,
-		//          strDir);
-
+		//UINT GetPrivateProfileInt( //读取整形值：(返回值为读到的整) 
+  //LPCTSTR lpAppName,  // INI文件中的一个字段名[节名]可以有很多个节名  
+  //LPCTSTR lpKeyName,  // lpAppName 下的一个键名，也就是里面具体的变量名  
+  //INT nDefault,       // 如果没有找到指定的数据返回,则把个变量值赋给返回值    
+  //LPCTSTR lpFileName  // INI文件的路径    
+//);  
 		m_iLogLevel = GetPrivateProfileInt(
 			_T("SuperLog"), 
 			_T("LogLevel"), 
@@ -290,12 +238,6 @@ int CSuperLog::OperaterConfig(BOOL bSave)
 			WriteLog(_T("日志级别配置非法。"),LOG_LEVEL_ERROR);
 			m_iLogLevel = ENUM_LOG_LEVEL_RUN;
 		}
-
-		//m_iMaxLogFileLen  = GetPrivateProfileInt(
-		//    _T("SuperLog"), 
-		//    _T("MaxLogFileLen"), 
-		//    MAX_LOG_FILE_LEN,
-		//    strDir);
 
 		m_iMaxLogFileLen  = GetPrivateProfileInt(
 			_T("SuperLog"), 
@@ -321,7 +263,6 @@ int CSuperLog::CheckLogLevel()
 		m_iLogLevel = iLevel;
 		OperaterConfig(TRUE);
 	}
-
 	return 0;
 }
 
@@ -335,7 +276,7 @@ int CSuperLog::SetLogLevelShareMem(int iLevel)
 	if (m_hMapLogFile != NULL && m_psMapAddr != NULL)
 	{
 		_tcscpy_s(m_psMapAddr, 1024, g_pszLogLevel[iLevel]);                  
-		FlushViewOfFile(m_psMapAddr, _tcslen(g_pszLogLevel[iLevel]));
+		FlushViewOfFile(m_psMapAddr, _tcslen(g_pszLogLevel[iLevel]));//将写入文件映射缓冲区的所有数据都刷新到磁盘
 		WriteLog(_T("设置日志级别成功。"), ENUM_LOG_LEVEL_RUN);
 	}
 	return 0;
@@ -343,6 +284,8 @@ int CSuperLog::SetLogLevelShareMem(int iLevel)
 
 int CSuperLog::GetLogLevelShareMem(void)
 {
+	//要先使用函数CreateFileMapping来创建一个想共享的文件数据句柄，然后使用MapViewOfFile来获取共享的内存地址，
+	//然后使用OpenFileMapping函数在另一个进程里打开共享文件的名称，这样就可以实现不同的进程共享数据
 	//打开共享的文件对象。
 	if (m_hMapLogFile == NULL)
 	{
@@ -370,7 +313,6 @@ int CSuperLog::GetLogLevelShareMem(void)
 				_tcscpy_s(m_psMapAddr, 1024, g_pszLogLevel[m_iLogLevel]);                  
 				FlushViewOfFile(m_psMapAddr, _tcslen(g_pszLogLevel[m_iLogLevel]));
 				WriteLog(_T("设置默认日志级别到共享内存中成功。"), ENUM_LOG_LEVEL_RUN);
-
 			}
 		}
 		else
@@ -402,7 +344,6 @@ int CSuperLog::GetLogLevelShareMem(void)
 	return m_iLogLevel;
 }
 
-
 CSuperLog::enLogStatus CSuperLog::OpenLogFile(void)
 {
 	EnterCriticalSection(&m_csWriteLog); 
@@ -410,78 +351,30 @@ CSuperLog::enLogStatus CSuperLog::OpenLogFile(void)
 	if (m_enStatus == ENUM_LOG_INVALID && m_iCurLogFileSeq != 0)
 	{
 		m_iCurLogFileSeq--;
-		//if (m_pFile != NULL)
-		//{
-		//    m_pFile->Close();
-		//    delete m_pFile;
-		//    m_pFile = NULL;
-		//}
 		if(m_pFileL.is_open())
 		{
 			m_pFileL.close();
 		}
-
 	}
 
 	for (int iRunCount = 0; iRunCount < MAX_LOG_FILE_COUNT; iRunCount++)
 	{
-		//if (m_pFile == NULL)
-		//{
-		//    m_pFile = new CStdioFile;
-		//    if (m_pFile == NULL)
-		//    {
-		//        LeaveCriticalSection(&m_csWriteLog);
-		//        return m_enStatus = ENUM_LOG_INVALID;
-		//    }
-
-		/*BOOL bRet = m_pFile->Open(
-		g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT],
-		CFile::modeWrite | CFile::modeCreate | CFile::typeBinary | CFile::shareDenyNone | CFile::modeNoTruncate);
-		*/
-		//m_pFileL->open(
-		//g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT],
-		//fstream::in | fstream::out| fstream::binary | fstream::app);
-		//fstream fs;
-		//if(fs){
-		//	cout<<""<<endl;
-		//}
 		if(!m_pFileL.is_open())
 		{
 			m_pFileL.close();
-
 			m_pFileL.open(g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT], fstream::in | fstream::out| fstream::binary | fstream::app);
-
-			//if(m_pFileL.is_open())
-			//{
-			//	// 测试成功
-			//	int ss=1;
-			//	m_pFileL.write("abc",3);
-			//	m_pFileL.flush();
-			//}
-
-			/*   if (bRet)
-			{
-			WriteUnicodeHeadToFile(m_pFile);
-			}*/
-
 			if(m_pFileL.is_open())
 			{
 				WriteUnicodeHeadToFileL(m_pFileL);
-
 			}
-
 			else
 			{
-				//delete m_pFile;
-				//m_pFile = NULL;
 				m_pFileL.close();
-
 				LeaveCriticalSection(&m_csWriteLog);
 				return m_enStatus = ENUM_LOG_INVALID;
 			}
 		}
-
-		// if (m_pFile->GetLength() > MAX_LOG_FILE_LEN)
+		// 获取流文件大小操作
 		streampos ps= m_pFileL.tellg();
 		if (ps > MAX_LOG_FILE_LEN)
 		{
@@ -491,21 +384,12 @@ CSuperLog::enLogStatus CSuperLog::OpenLogFile(void)
 			if (m_iCurLogFileSeq >= MAX_LOG_FILE_COUNT) 
 			{
 				// 所有文件都是写满了，则强制从第一个文件开始写，同时先清空文件
-				//bRet = m_pFile->Open(
-				//    g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT],
-				//    CFile::modeWrite | CFile::modeCreate | CFile::typeBinary | CFile::shareDenyNone); 
-
 				m_pFileL.open(g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT], fstream::in | fstream::out| fstream::binary | fstream::app);
 			}
 			else
 			{
 				// 打开第二个文件，再检查是否过了最大值
-				/*bRet = m_pFile->Open(
-				g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT],
-				CFile::modeWrite | CFile::modeCreate | CFile::typeBinary | CFile::shareDenyNone | CFile::modeNoTruncate);
-				*/
 				m_pFileL.open(g_pszLogFileName[(m_iCurLogFileSeq++)%MAX_LOG_FILE_COUNT], fstream::in | fstream::out| fstream::binary | fstream::app);
-
 			}
 
 			if (m_pFileL.is_open())
@@ -514,8 +398,6 @@ CSuperLog::enLogStatus CSuperLog::OpenLogFile(void)
 			}
 			else
 			{
-				//delete m_pFile;
-				//m_pFile = NULL;
 				m_pFileL.close();
 				LeaveCriticalSection(&m_csWriteLog);
 				return m_enStatus = ENUM_LOG_INVALID;
@@ -527,43 +409,10 @@ CSuperLog::enLogStatus CSuperLog::OpenLogFile(void)
 		}
 	}
 
-	//m_pFile->SeekToEnd();
 	m_pFileL.seekg (0, m_pFileL.end);
 	LeaveCriticalSection(&m_csWriteLog);
 	return m_enStatus = ENUM_LOG_RUN;
 }
-
-
-//int CSuperLog::WriteLog(CString &strLog,enLogInfoLevel enLevel/* = ENUM_LOG_LEVEL_RUN*/, bool bForce /*= false*/)
-//{
-//    if (enLevel < m_iLogLevel)
-//    {
-//        return -1;
-//    }
-//
-//    EnterCriticalSection(&m_csWriteLog); 
-//    if (!strLog.IsEmpty())
-//    {
-//        m_strWriteStrInfo += GetCurTimeStr();
-//        // add log level info
-//        if (enLevel == ENUM_LOG_LEVEL_ERROR)
-//        {
-//            m_strWriteStrInfo += _T("Error! ");
-//        }
-//        m_strWriteStrInfo += strLog;
-//        m_strWriteStrInfo += _T("\r\n");
-//    }
-//
-//    if ( bForce
-//        || m_strWriteStrInfo.GetLength() > MAX_STR_LOG_INFO_LEN
-//        || m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-//    {
-//        // write info
-//        WriteLogToFile();
-//    }
-//    LeaveCriticalSection(&m_csWriteLog);
-//    return 0;
-//}
 
 int CSuperLog::WriteLog(string &strLog,enLogInfoLevel enLevel/* = ENUM_LOG_LEVEL_RUN*/, bool bForce /*= false*/)
 {
@@ -576,7 +425,6 @@ int CSuperLog::WriteLog(string &strLog,enLogInfoLevel enLevel/* = ENUM_LOG_LEVEL
 	if (!strLog.empty())
 	{
 		m_strWriteStrInfoL += GetCurTimeStrL();
-		// add log level info
 		if (enLevel == ENUM_LOG_LEVEL_ERROR)
 		{
 			m_strWriteStrInfoL += ("Error! ");
@@ -585,20 +433,10 @@ int CSuperLog::WriteLog(string &strLog,enLogInfoLevel enLevel/* = ENUM_LOG_LEVEL
 		m_strWriteStrInfoL += ("\r\n");
 	}
 
-	//if ( bForce
-	//	|| m_strWriteStrInfo.GetLength() > MAX_STR_LOG_INFO_LEN
-	//	|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-	//{
-	//	// write info
-	//	WriteLogToFile();
-	//}
-
-
 	if ( bForce
 		|| m_strWriteStrInfoL.length() > MAX_STR_LOG_INFO_LEN
 		|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
 	{
-		// write info
 		WriteLogToFileL();
 	}
 
@@ -616,16 +454,12 @@ int CSuperLog::WriteLog(TCHAR* pstrLog, enLogInfoLevel enLevel /*= ENUM_LOG_LEVE
 	EnterCriticalSection(&m_csWriteLog); 
 	if (_tcslen(pstrLog) != 0)
 	{
-		//m_strWriteStrInfo += GetCurTimeStr();
 		m_strWriteStrInfoL += GetCurTimeStrL();
 		if (enLevel == ENUM_LOG_LEVEL_ERROR)
 		{
-			//m_strWriteStrInfo += _T("Error! ");
 			m_strWriteStrInfoL += ("Error! ");
 		}
-		//m_strWriteStrInfo += pstrLog;
-		//m_strWriteStrInfo += _T("\r\n");
-		//m_strWriteStrInfoL += pstrLog;
+
 #ifdef _UNICODE
 		string str1 = TCHAR2STRIN(pstrLog);
 #else
@@ -635,127 +469,16 @@ int CSuperLog::WriteLog(TCHAR* pstrLog, enLogInfoLevel enLevel /*= ENUM_LOG_LEVE
 		m_strWriteStrInfoL +=("\r\n");
 	}
 
-	//if ( bForce
-	//    || m_strWriteStrInfo.GetLength() > MAX_STR_LOG_INFO_LEN
-	//    || m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
+
 	if ( bForce
 		|| m_strWriteStrInfoL.length() > MAX_STR_LOG_INFO_LEN
 		|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
 	{
-		// write info
-		//WriteLogToFile();
 		WriteLogToFileL();
 	}
 	LeaveCriticalSection(&m_csWriteLog);
 	return 0;
 }
-
-/*int CSuperLog::WriteLog(char* pszLog,enLogInfoLevel enLevel , bool bForce )
-{
-// 待实现
-if (pszLog == NULL || enLevel < m_iLogLevel)
-{
-return -1;
-}
-
-
-EnterCriticalSection(&m_csWriteLog); 
-if (strlen(pszLog) > 0)
-{
-//m_strWriteStrInfo += GetCurTimeStr();
-m_strWriteStrInfoL += GetCurTimeStrL();
-if (enLevel == ENUM_LOG_LEVEL_ERROR)
-{
-//m_strWriteStrInfo += _T("Error! ");
-m_strWriteStrInfoL += ("Error! ");
-}
-//m_strWriteStrInfo += pszLog;
-//m_strWriteStrInfo += _T("\r\n");
-
-m_strWriteStrInfoL += pszLog;
-m_strWriteStrInfoL += ("\r\n");
-}
-
-//if ( bForce	|| m_strWriteStrInfo.GetLength() > MAX_STR_LOG_INFO_LEN
-//	|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-if ( bForce	|| m_strWriteStrInfoL.length() > MAX_STR_LOG_INFO_LEN
-|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-{
-// write info
-//WriteLogToFile();
-WriteLogToFileL();
-}
-LeaveCriticalSection(&m_csWriteLog);
-return 0;
-}*/
-
-/*int CSuperLog::WriteLogL(TCHAR* pstrLog,  enLogInfoLevel enLevel , bool bForce ,int )
-{
-if (pstrLog == NULL || enLevel < m_iLogLevel)
-{
-return -1;
-}
-
-EnterCriticalSection(&m_csWriteLog); 
-if (_tcslen(pstrLog) != 0)
-{
-//m_strWriteStrInfo += GetCurTimeStr();
-m_strWriteStrInfoL += GetCurTimeStrL();
-
-if (enLevel == ENUM_LOG_LEVEL_ERROR)
-{
-//m_strWriteStrInfo += _T("Error! ");
-m_strWriteStrInfoL += ("Error! ");
-}
-//m_strWriteStrInfo += pstrLog;
-//m_strWriteStrInfo += _T("\r\n");
-
-//m_strWriteStrInfoL += pstrLog;
-
-string str1 = TCHAR2STRIN(pstrLog);
-m_strWriteStrInfoL += str1;
-m_strWriteStrInfoL +=("\r\n");
-}
-
-//if ( bForce
-//	|| m_strWriteStrInfo.GetLength() > MAX_STR_LOG_INFO_LEN
-//	|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-
-if ( bForce
-|| m_strWriteStrInfoL.length() > MAX_STR_LOG_INFO_LEN
-|| m_iWriteBinLogLen > MAX_BIN_LOG_INFO_LEN/10)
-{
-// write info
-WriteLogToFileL();
-}
-LeaveCriticalSection(&m_csWriteLog);
-return 0;
-} */
-
-//int CSuperLog::WriteUnicodeHeadToFile(CFile * pFile)
-//{
-//    if (pFile == NULL)
-//    {
-//        return -1;
-//    }
-//    try
-//    {
-//        if (pFile->GetLength() == 0)
-//        {
-//            m_pFile->Write("\377\376", 2);
-//            if (m_enStatus == ENUM_LOG_RUN)
-//            {
-//                m_pFile->WriteString(WELCOME_LOG_INFO);
-//            }
-//            m_pFile->Flush();
-//        }
-//    }
-//    catch (...)
-//    {
-//        return -1;
-//    }
-//    return 0;
-//}
 
 int CSuperLog::WriteUnicodeHeadToFileL(fstream& pFileL)
 {
@@ -768,21 +491,18 @@ int CSuperLog::WriteUnicodeHeadToFileL(fstream& pFileL)
 		// 这个操作是有问题的
 		//int ch=pFileL.get();
 		//if ( (pFileL.eof()))
-
-
-		m_pFileL.seekg(0,ios::end);
-		streampos ps= m_pFileL.tellg();
+		pFileL.seekg(0,ios::end);
+		streampos ps= pFileL.tellg();
 		if(ps<1)
 		{
 			//pFileL.write("\377\376", 2);
 			if (m_enStatus == ENUM_LOG_RUN)
 			{
-				char *str = WELCOME_LOG_INFOL;
-				int size = strlen(str);
+				TCHAR *str = WELCOME_LOG_INFOL;
+				int size = _tcslen(str);
 				pFileL.write(str,size);
 			}
 			pFileL.flush();
-
 		}
 	}
 	catch (...)
@@ -792,26 +512,28 @@ int CSuperLog::WriteUnicodeHeadToFileL(fstream& pFileL)
 	return 0;
 }
 
-//CString& CSuperLog::GetCurTimeStr()
-//{
-//    g_tmCurTime = CTime::GetCurrentTime();// time(NULL);
-//    g_strTime = g_tmCurTime.Format(_T("%Y-%m-%d %H:%M:%S "));
-//    return g_strTime;
-//}
-
 string& CSuperLog::GetCurTimeStrL()
 {
-	//g_tmCurTimeL = CTime::GetCurrentTime();// time(NULL);
-
-	//use _CRT_SECURE_NO_WARNINGS:
 	g_strTimeL = "";
-	g_tmCurTimeL = time(NULL);  
+	g_tmCurTimeL = time(NULL); //获取系统时间，单位为秒;
 
 	tm timeinfo;
-	localtime_s(&timeinfo,&g_tmCurTimeL);	
+	//struct tm {
+ //       int tm_sec;     /* seconds after the minute - [0,59] */
+ //       int tm_min;     /* minutes after the hour - [0,59] */
+ //       int tm_hour;    /* hours since midnight - [0,23] */
+ //       int tm_mday;    /* day of the month - [1,31] */
+ //       int tm_mon;     /* months since January - [0,11] */
+ //       int tm_year;    /* years since 1900 */
+ //       int tm_wday;    /* days since Sunday - [0,6] */
+ //       int tm_yday;    /* days since January 1 - [0,365] */
+ //       int tm_isdst;   /* daylight savings time flag */
+ //       };
+	localtime_s(&timeinfo,&g_tmCurTimeL);
+	//tm * timeinfo = localtime(&g_tmCurTimeL);//转换成tm类型的结构体
 
 	char str[MAX_PATH];
-	_itoa_s(timeinfo.tm_year+1900, str, MAX_PATH,10);
+	_itoa_s(timeinfo.tm_year+1900, str, MAX_PATH,10); //int型转换为string型
 	g_strTimeL = g_strTimeL+str+"-";
 
 	_itoa_s(timeinfo.tm_mon+1, str,MAX_PATH, 10);
@@ -829,47 +551,11 @@ string& CSuperLog::GetCurTimeStrL()
 	_itoa_s(timeinfo.tm_sec, str, MAX_PATH,10);
 	g_strTimeL = g_strTimeL+str+" ";
 
-	//g_strTimeL = g_tmCurTimeL.Format(_T("%Y-%m-%d %H:%M:%S "));
 	return g_strTimeL;
 }
 
-
-
-//int CSuperLog::WriteLogToFile()
-//{
-//    if (m_pFile == NULL 
-//        || (m_iWriteBinLogLen == 0 && m_strWriteStrInfo.IsEmpty()) 
-//        || m_enStatus == ENUM_LOG_INIT 
-//        || m_enStatus == ENUM_LOG_EXITED
-//        || m_enStatus == ENUM_LOG_INVALID
-//        )
-//    {
-//        return 0;
-//    }
-//
-//    try
-//    {
-//        m_pFile->WriteString(m_strWriteStrInfo); 
-//        m_pFile->Flush();	
-//		
-//    }
-//    catch (...)
-//    {
-//        m_enStatus = ENUM_LOG_INVALID;
-//    }
-//
-//    m_strWriteStrInfo.Empty();
-//    return 0;
-//}
-
 int CSuperLog::WriteLogToFileL()
 {
-	//if (m_pFileL.is_open() < 1 
-	//	|| (m_iWriteBinLogLen == 0 && m_strWriteStrInfo.IsEmpty()) 
-	//	|| m_enStatus == ENUM_LOG_INIT 
-	//	|| m_enStatus == ENUM_LOG_EXITED
-	//	|| m_enStatus == ENUM_LOG_INVALID
-	//	)
 	if (!m_pFileL.is_open() 
 		|| (m_iWriteBinLogLen == 0 && m_strWriteStrInfoL.empty()) 
 		|| m_enStatus == ENUM_LOG_INIT 
@@ -882,11 +568,9 @@ int CSuperLog::WriteLogToFileL()
 
 	try
 	{
-		//char *str = WELCOME_LOG_INFOL;
-		//int size = strlen(str);
-
+		//? string 是ansi编码，而要用是Unicode编码则是wstring
 		const char *str = m_strWriteStrInfoL.c_str();
-		int size = strlen(str);
+		int size = _tcslen(str);
 
 		m_pFileL.write(str,size); 
 		m_pFileL.flush();	
@@ -897,11 +581,10 @@ int CSuperLog::WriteLogToFileL()
 		m_enStatus = ENUM_LOG_INVALID;
 	}
 
-	//m_strWriteStrInfo.Empty();
 	m_strWriteStrInfoL="";
 	return 0;
 }
-
+//end of superlog.cpp
 
 //#include <windows.h>
 //#include <stdio.h>
