@@ -15,6 +15,7 @@ int main()
 	start2 = GetTickCount();
 	double start = cv::getTickCount();
 	cv::split(image,rgb);
+
 	double end = cv::getTickCount();
 	end2 = GetTickCount();
 	end1 = clock();
