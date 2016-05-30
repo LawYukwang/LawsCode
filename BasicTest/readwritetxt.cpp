@@ -3,9 +3,26 @@
 #include <ctime>
 
 using namespace std;
+void testFunction();
 
 int main()
 {
+	int * abc;
+	int (*ab)[4];
+	int arr[4] = {1,2,3,4};
+	abc = arr;
+	ab = &arr;
+	void (*f)();
+	f = testFunction;
+	for (int i = 0; i < 4; i++)
+	{
+		printf("%d\n",(*ab)[i]);
+		printf("%d\n", testFunction);
+		printf("%d\n", &testFunction);
+		printf("%d\n", f);
+		printf("%d\n", &f);
+	}
+
 	char * floderPath = "E:\\Action\\testdataset\\纯色\\";
 	//获取时间作为文件名
 	char strTime[256];
@@ -24,5 +41,10 @@ int main()
 	txtFile<<&strTime[0]<<endl;
 	//txtFile.write(&strTime[0],256);
 	txtFile.close();
+	system("pause");
+}
 
+void testFunction()
+{
+	int a = 0;
 }
