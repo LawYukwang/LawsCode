@@ -65,31 +65,33 @@ BYTE* _getRGBData(char *filePath, int & width, int & height, int & dataSize)
 
 void _RGB2Hobject(Hobject * Image, int width, int height, BYTE * data)
 {
-		//read_image(&grayImage,"2.jpg");
-	int offsets = height * width;
-	//定义3个图像数组
-	BYTE* r_image = transdata;
+	//	//read_image(&grayImage,"2.jpg");
+	//int offsets = height * width;
+	////定义3个图像数组
+	////BYTE* r_image = transdata;
 	//BYTE* r_image = new BYTE[offsets];
 	//memset(r_image, '\0', offsets);
-	BYTE* g_image = r_image + offsets;
+	////BYTE* g_image = r_image + offsets;
+	//BYTE* g_image = new BYTE[offsets];
 	//memset(g_image, '\0', offsets);
-	BYTE* b_image = g_image + offsets;
+	////BYTE* b_image = g_image + offsets;
 	//BYTE* b_image = new BYTE[offsets];
 	//memset(b_image, '\0', offsets);
-	for (int h = 0;h<height;h++)
-	{
-		for (int w = 0;w<width;w++)
-		{
-			int val = h*width+w;
-			r_image[val]=data[val*3+2];
-			g_image[val]=data[val*3+1];
-			b_image[val]=data[val*3];
-		}
-	}
-	gen_image3(Image,"byte",width,height,(long)r_image,(long)g_image,(long)b_image);
+	//for (int h = 0;h<height;h++)
+	//{
+	//	for (int w = 0;w<width;w++)
+	//	{
+	//		int val = h*width+w;
+	//		r_image[val]=data[val*3+2];
+	//		g_image[val]=data[val*3+1];
+	//		b_image[val]=data[val*3];
+	//	}
+	//}
+	//gen_image3(Image,"byte",width,height,(long)r_image,(long)g_image,(long)b_image);
 	//delete[] r_image;
 	//delete[] g_image;
 	//delete[] b_image;
+	gen_image_interleaved (Image, (long)data, "bgr", (HTuple)width, (HTuple)height, 1,"byte",(HTuple)width, (HTuple)height, 0, 0, -1,0);
 }
 
 void RGB2Hobject(Hobject * Image, int width, int height, BYTE * data)
@@ -134,19 +136,22 @@ int main()
 	int height;
 	int dataSize;
 	Hobject Image,Image1;
-	for (int i = 1; i < 10; i++)
+	HTuple pR, pG, pB, pType, Width, Height;
+	for (int i = 0; i < 30; i++)
 	{
 		char* filename = new char[260];
-		sprintf(filename, "defect_%d.bmp", i);
+		sprintf(filename, "defect_%d.bmp", i%10+1);
 		BYTE * bmpData = _getRGBData(filename,width,height,dataSize);
-		start = GetTickCount();
-		_RGB2Hobject(&Image, width, height, bmpData);
-		end = GetTickCount();
+		//start = GetTickCount();
+		//if(i<15 || i> 25)
+		//	_RGB2Hobject(&Image, width, height, bmpData);
+		//end = GetTickCount();
 		start1 = GetTickCount();
 		RGB2Hobject(&Image1, width, height, bmpData);
 		end1 = GetTickCount();
+		get_image_pointer3 (Image1, &pR, &pG, &pB, &pType, &Width, &Height);
 		printf ("for time : %f\n", end - start);
-		printf ("CV  time : %f\n", end1 - start1);
+		//printf ("CV  time : %f\n", end1 - start1);
 		Sleep(1000);
 	}
 	//mirror_image(Image, &Image,"row");
@@ -154,7 +159,7 @@ int main()
 	open_window(0,0,840,680,0,"","",&WindowHandle);
 	HDevWindowStack::Push(WindowHandle);
 	if (HDevWindowStack::IsOpen())
-		disp_obj(Image1, HDevWindowStack::GetActive());
+		disp_obj(Image, HDevWindowStack::GetActive());
 
 	system("pause");
 }
