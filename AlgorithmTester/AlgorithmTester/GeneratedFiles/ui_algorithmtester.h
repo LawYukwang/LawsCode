@@ -30,7 +30,7 @@ public:
     QAction *actionSave;
     QAction *actionAccuracy;
     QAction *actionAdjust;
-    QAction *actionUse;
+    QAction *actionManual;
     QAction *actionSave_as;
     QAction *actionExit;
     QAction *actionRect;
@@ -61,8 +61,8 @@ public:
         actionAccuracy->setObjectName(QStringLiteral("actionAccuracy"));
         actionAdjust = new QAction(AlgorithmTesterClass);
         actionAdjust->setObjectName(QStringLiteral("actionAdjust"));
-        actionUse = new QAction(AlgorithmTesterClass);
-        actionUse->setObjectName(QStringLiteral("actionUse"));
+        actionManual = new QAction(AlgorithmTesterClass);
+        actionManual->setObjectName(QStringLiteral("actionManual"));
         actionSave_as = new QAction(AlgorithmTesterClass);
         actionSave_as->setObjectName(QStringLiteral("actionSave_as"));
         actionExit = new QAction(AlgorithmTesterClass);
@@ -115,7 +115,7 @@ public:
         function->addAction(actionAccuracy);
         function->addAction(actionAdjust);
         function->addAction(actionAdd_defect);
-        help->addAction(actionUse);
+        help->addAction(actionManual);
 
         retranslateUi(AlgorithmTesterClass);
 
@@ -129,7 +129,7 @@ public:
         actionSave->setText(QApplication::translate("AlgorithmTesterClass", "\344\277\235\345\255\230", 0));
         actionAccuracy->setText(QApplication::translate("AlgorithmTesterClass", "\345\207\206\347\241\256\347\216\207\350\256\241\347\256\227", 0));
         actionAdjust->setText(QApplication::translate("AlgorithmTesterClass", "\345\217\202\346\225\260\350\260\203\350\212\202", 0));
-        actionUse->setText(QApplication::translate("AlgorithmTesterClass", "\344\275\277\347\224\250\350\257\264\346\230\216", 0));
+        actionManual->setText(QApplication::translate("AlgorithmTesterClass", "\344\275\277\347\224\250\350\257\264\346\230\216", 0));
         actionSave_as->setText(QApplication::translate("AlgorithmTesterClass", "\345\217\246\345\255\230\344\270\272", 0));
         actionExit->setText(QApplication::translate("AlgorithmTesterClass", "\351\200\200\345\207\272", 0));
         actionRect->setText(QApplication::translate("AlgorithmTesterClass", "\346\226\271\345\275\242", 0));

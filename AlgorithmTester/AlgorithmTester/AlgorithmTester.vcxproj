@@ -63,9 +63,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <ExecutablePath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\bin;D:\OpenCV\build\x64\vc11\bin;D:\Program Files\MVTec\HALCON-10.0\bin\x64-win64;$(ExecutablePath)</ExecutablePath>
-    <IncludePath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\include;D:\OpenCV\build\include;D:\OpenCV\build\include\opencv;D:\OpenCV\build\include\opencv2;D:\Program Files\MVTec\HALCON-10.0\include\cpp;D:\Program Files\MVTec\HALCON-10.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\lib;D:\OpenCV\build\x64\vc11\lib;D:\Program Files\MVTec\HALCON-10.0\lib\x64-win64;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\bin;D:\OpenCV\opencv\build\x64\vc11\bin;D:\Program Files\MVTec\HALCON-12.0\bin\x64-win64;$(ExecutablePath)</ExecutablePath>
+    <IncludePath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\include;D:\OpenCV\opencv\build\include;D:\OpenCV\opencv\build\include\opencv;D:\OpenCV\opencv\build\include\opencv2;D:\Program Files\MVTec\HALCON-12.0\include\cpp;D:\Program Files\MVTec\HALCON-12.0\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\Qt\Qt5.2.0\5.2.0\msvc2012_64_opengl\lib;D:\OpenCV\opencv\build\x64\vc11\lib;D:\Program Files\MVTec\HALCON-12.0\lib\x64-win64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
@@ -229,7 +229,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties UicDir=".\GeneratedFiles" MocDir=".\GeneratedFiles\$(ConfigurationName)" MocOptions="" RccDir=".\GeneratedFiles" lupdateOnBuild="0" lupdateOptions="" lreleaseOptions="" Qt5Version_x0020_Win32="QT5.2.0_64" Qt5Version_x0020_x64="QT5.2.0" />
+      <UserProperties UicDir=".\GeneratedFiles" MocDir=".\GeneratedFiles\$(ConfigurationName)" MocOptions="" RccDir=".\GeneratedFiles" lupdateOnBuild="0" lupdateOptions="" lreleaseOptions="" Qt5Version_x0020_Win32="QT5.2.0_64" Qt5Version_x0020_x64="QT5.2.0_64" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>
